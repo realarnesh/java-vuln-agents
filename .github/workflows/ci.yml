@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Unit tests
+        run: python -m pytest -q
+      - name: Detection benchmark
+        run: python -m vulnagents.benchmark
+      - name: Scan samples and apply fixes
+        run: python -m vulnagents samples --fix --out fixed --format md --report report.md
+      - name: Compile samples and patched output with javac
+        run: |
+          javac -d build/original samples/vulnerable/*.java samples/safe/*.java
+          javac -d build/fixed fixed/vulnerable/*.java
+      - name: Safe samples must be clean
+        run: python -m vulnagents samples/safe --fail-on low
